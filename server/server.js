@@ -14,7 +14,7 @@ import { stripeWebHooks } from "./controllers/stripeWebhooks.js";
 
 const app = express()
 const allowedOrigins = [
-  "https://sweet-home-a-hotel-booking-platform-lyart.vercel.app/", // your frontend
+  "https://sweet-home-a-hotel-booking-platform-lyart.vercel.app", // your frontend
   "http://localhost:5173"            // for local development (optional)
 ];
 
