@@ -90,20 +90,20 @@ const Dashboard = () => {
         subTitle="Manage hotels, monitor bookings and track revenue."
       />
 
-      <div className="flex gap-4 my-8">
-        <div className="bg-primary/3 border border-primary/10 rounded flex p-4 pr-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
+        <div className="soft-card rounded-2xl flex p-4 pr-8">
           <img src={assets.totalBookingIcon} alt="" className="max-sm:hidden h-10" />
           <div className="flex flex-col sm:ml-4 font-medium">
-            <p className="text-blue-500 text-lg">Total Bookings</p>
-            <p className="text-neutral-400 text-base">{dashboardData.totalBookings}</p>
+            <p className="text-primary text-lg">Total Bookings</p>
+            <p className="text-slate-500 text-base">{dashboardData.totalBookings}</p>
           </div>
         </div>
 
-        <div className="bg-primary/3 border border-primary/10 rounded flex p-4 pr-8">
+        <div className="soft-card rounded-2xl flex p-4 pr-8">
           <img src={assets.totalRevenueIcon} alt="" className="max-sm:hidden h-10" />
           <div className="flex flex-col sm:ml-4 font-medium">
-            <p className="text-blue-500 text-lg">Total Revenue</p>
-            <p className="text-neutral-400 text-base">
+            <p className="text-primary text-lg">Total Revenue</p>
+            <p className="text-slate-500 text-base">
               {currency} {dashboardData.totalRevenue}
             </p>
           </div>
@@ -112,16 +112,16 @@ const Dashboard = () => {
 
       <div className="mb-10">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl text-blue-950/70 font-medium">My Hotels</h2>
+          <h2 className="text-xl text-slate-900 font-medium">My Hotels</h2>
           <button
             onClick={() => setShowHotelReg(true)}
-            className="bg-primary text-white px-4 py-2 rounded cursor-pointer"
+            className="bg-primary text-white px-4 py-2 rounded-xl cursor-pointer hover:bg-primary/90 transition-all"
           >
             Add Hotel
           </button>
         </div>
 
-        <div className="w-full max-w-4xl text-left border border-gray-300 rounded-lg overflow-x-auto">
+        <div className="w-full max-w-4xl text-left soft-card rounded-2xl overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -140,7 +140,7 @@ const Dashboard = () => {
                   <td className="py-3 px-4 text-gray-700 border-t border-gray-300 text-center">
                     <button
                       onClick={() => updateHotel(hotel)}
-                      className="px-3 py-1 rounded bg-blue-100 text-blue-700 mr-2 cursor-pointer"
+                      className="px-3 py-1 rounded-lg bg-sky-100 text-sky-700 mr-2 cursor-pointer"
                     >
                       Edit
                     </button>
@@ -165,8 +165,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <h2 className="text-xl text-blue-950/70 font-medium mb-5">Recent Bookings</h2>
-      <div className="w-full max-w-4xl text-left border border-gray-300 rounded-lg max-h-80 overflow-y-scroll">
+      <h2 className="text-xl text-slate-900 font-medium mb-5">Recent Bookings</h2>
+      <div className="w-full max-w-4xl text-left soft-card rounded-2xl max-h-80 overflow-y-scroll">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>

@@ -1,15 +1,51 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Playfair:ital,opsz,wght@0,5..1200,300..900;1,5..1200,300..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Playfair+Display:ital,opsz,wght@0,5..1200,300..900;1,5..1200,300..900&display=swap");
 @import "tailwindcss";
 
-@theme{
-  --color-primary: #2563eb;
-  --color-secondary: #fbbf24;
+@theme {
+  --color-primary: #0f766e;
+  --color-secondary: #f59e0b;
 }
 
-*{
-  font-family: 'Outfit';
+* {
+  font-family: "Outfit", sans-serif;
+}
+
+body {
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(15, 118, 110, 0.12), transparent 35%),
+    radial-gradient(circle at 85% 5%, rgba(245, 158, 11, 0.12), transparent 38%),
+    #f8fafc;
+  min-height: 100vh;
 }
 
 .font-playfair {
-  font-family: 'Playfair' !important;
+  font-family: "Playfair Display", serif !important;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.9)),
+    repeating-linear-gradient(
+      45deg,
+      rgba(148, 163, 184, 0.08) 0px,
+      rgba(148, 163, 184, 0.08) 1px,
+      transparent 1px,
+      transparent 11px
+    );
+}
+
+.soft-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 14px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 10px 35px rgba(2, 132, 199, 0.15);
+  backdrop-filter: blur(10px);
 }

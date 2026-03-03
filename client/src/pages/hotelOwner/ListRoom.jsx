@@ -69,10 +69,10 @@ const ListRoom = () => {
         title="Room Listings"
         subTitle="Manage room types, inventory and active status."
       />
-      <p className="text-gray-500 mt-8">All Rooms</p>
-      <div className="w-full max-w-5xl text-left border border-gray-300 rounded-lg max-h-100 overflow-y-scroll mt-3">
+      <p className="text-slate-500 mt-8">All Rooms</p>
+      <div className="w-full max-w-5xl text-left soft-card rounded-2xl max-h-100 overflow-y-scroll mt-3">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-slate-50">
             <tr>
               <th className="py-3 px-4 text-gray-800 font-medium">Hotel</th>
               <th className="py-3 px-4 text-gray-800 font-medium">Room Type</th>
@@ -101,7 +101,7 @@ const ListRoom = () => {
                         className="sr-only peer"
                         checked={item.isActive}
                       />
-                      <div className="w-10 h-6 bg-slate-300 rounded-full peer peer-checked:bg-blue-600 transition-colors duration-200" />
+                      <div className="w-10 h-6 bg-slate-300 rounded-full peer peer-checked:bg-primary transition-colors duration-200" />
                       <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 ease-in-out peer-checked:translate-x-4" />
                     </label>
                     <button

@@ -100,7 +100,7 @@ const AddRoom = () => {
   };
 
   return (
-    <form onSubmit={onSubmitHandler}>
+    <form onSubmit={onSubmitHandler} className="soft-card rounded-2xl p-6">
       <Title
         align="left"
         font="Outfit"
@@ -110,7 +110,7 @@ const AddRoom = () => {
 
       <p className="text-gray-800 mt-8">Hotel</p>
       <select
-        className="border opacity-70 border-gray-300 mt-1 rounded p-2 w-full max-w-sm"
+        className="border border-slate-300 mt-1 rounded-xl p-2.5 w-full max-w-sm bg-white"
         value={inputs.hotelId}
         onChange={(e) => setInputs({ ...inputs, hotelId: e.target.value })}
         required
@@ -128,7 +128,7 @@ const AddRoom = () => {
         {Object.keys(images).map((key) => (
           <label htmlFor={`roomImage${key}`} key={key}>
             <img
-              className="max-h-13 cursor-pointer opacity-80"
+              className="max-h-16 w-20 rounded-xl border border-slate-200 cursor-pointer object-cover opacity-90"
               src={images[key] ? URL.createObjectURL(images[key]) : assets.uploadArea}
               alt="upload-preview"
             />
@@ -150,7 +150,7 @@ const AddRoom = () => {
             type="text"
             value={inputs.roomType}
             onChange={(e) => setInputs({ ...inputs, roomType: e.target.value })}
-            className="border opacity-70 border-gray-300 mt-1 rounded p-2 w-full"
+            className="border border-slate-300 mt-1 rounded-xl p-2.5 w-full bg-white"
             placeholder="Single / Double / Deluxe"
             required
           />
@@ -161,7 +161,7 @@ const AddRoom = () => {
             type="number"
             min="0"
             placeholder="0"
-            className="border border-gray-300 mt-1 rounded p-2 w-24"
+            className="border border-slate-300 mt-1 rounded-xl p-2.5 w-28 bg-white"
             value={inputs.price}
             onChange={(e) => setInputs({ ...inputs, price: e.target.value })}
             required
@@ -172,7 +172,7 @@ const AddRoom = () => {
           <input
             type="number"
             min="1"
-            className="border border-gray-300 mt-1 rounded p-2 w-24"
+            className="border border-slate-300 mt-1 rounded-xl p-2.5 w-28 bg-white"
             value={inputs.totalRooms}
             onChange={(e) => setInputs({ ...inputs, totalRooms: e.target.value })}
             required
@@ -183,7 +183,7 @@ const AddRoom = () => {
       <p className="text-gray-800 mt-4">Amenities (optional)</p>
       <div className="flex flex-col flex-wrap mt-1 text-gray-500 max-w-sm">
         {Object.keys(inputs.amenities).map((amenity, index) => (
-          <div key={index}>
+          <div key={index} className="py-0.5">
             <input
               type="checkbox"
               id={`amenities${index + 1}`}
@@ -200,7 +200,7 @@ const AddRoom = () => {
         ))}
       </div>
 
-      <button className="bg-primary text-white px-8 py-2 rounded mt-8 cursor-pointer" disabled={loading}>
+      <button className="bg-primary text-white px-8 py-2.5 rounded-xl mt-8 cursor-pointer hover:bg-primary/90" disabled={loading}>
         {loading ? "Adding..." : "Add Room"}
       </button>
     </form>

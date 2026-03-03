@@ -20,7 +20,7 @@ const ownerPath= useLocation().pathname.includes('/owner')
 const {showHotelReg} = useAppContext()
 
   return (
-    <div>
+    <div className='app-shell'>
       <Toaster/>
     {!ownerPath && <Navbar />}
     {showHotelReg && <HotelReg/>}

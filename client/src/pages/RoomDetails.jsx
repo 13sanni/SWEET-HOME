@@ -131,10 +131,11 @@ const RoomDetails = () => {
   return (
     room && (
       <div className="py-28 md:py-35 px-4 md:px-16 lg:px-24 xl:px-32">
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
-          <h1 className="text-3xl md:text-4xl font-playfair">
-            {room.hotel?.name} <span className="font-inter text-sm">{room.roomType}</span>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+          <h1 className="text-3xl md:text-5xl font-playfair text-slate-900">
+            {room.hotel?.name} <span className="text-sm text-slate-500">{room.roomType}</span>
           </h1>
+          <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full">Verified Stay</span>
         </div>
 
         <div className="flex items-center gap-1 mt-2">
@@ -164,7 +165,7 @@ const RoomDetails = () => {
 
         <form
           onSubmit={onSubmitHandler}
-          className="bg-white border mt-10 p-5 rounded-xl shadow flex flex-col md:flex-row items-start md:items-end gap-4 justify-between"
+          className="soft-card mt-10 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-end gap-4 justify-between"
         >
           <div className="flex flex-col">
             <label className="text-sm">Check-in</label>
@@ -176,7 +177,7 @@ const RoomDetails = () => {
                 setFormCheckInDate(e.target.value);
                 updateParam("checkInDate", e.target.value);
               }}
-              className="border rounded px-3 py-2 mt-1"
+              className="border border-slate-200 rounded-xl px-3 py-2 mt-1 bg-white"
             />
           </div>
 
@@ -191,7 +192,7 @@ const RoomDetails = () => {
                 setFormCheckOutDate(e.target.value);
                 updateParam("checkOutDate", e.target.value);
               }}
-              className="border rounded px-3 py-2 mt-1"
+              className="border border-slate-200 rounded-xl px-3 py-2 mt-1 bg-white"
             />
           </div>
 
@@ -206,7 +207,7 @@ const RoomDetails = () => {
                 setFormRoomsRequested(e.target.value);
                 updateParam("roomsRequested", e.target.value);
               }}
-              className="border rounded px-3 py-2 mt-1"
+              className="border border-slate-200 rounded-xl px-3 py-2 mt-1 bg-white"
             />
           </div>
 
@@ -214,7 +215,7 @@ const RoomDetails = () => {
             <button
               type="submit"
               disabled={checkingAvailability}
-              className="bg-primary hover:bg-primary-dull text-white px-6 py-3 rounded-md disabled:opacity-60"
+              className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl disabled:opacity-60"
             >
               {checkingAvailability ? "Checking..." : "Book Now"}
             </button>
