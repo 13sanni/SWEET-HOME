@@ -1,3 +1,9 @@
 node_modules
+
+# Environment files (never commit secrets)
+.env
+.env.*
 client/.env
+client/.env.*
 server/.env
+server/.env.*
