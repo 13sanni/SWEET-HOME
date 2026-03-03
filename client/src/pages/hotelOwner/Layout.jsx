@@ -7,12 +7,12 @@ import { useEffect } from 'react'
 
 const Layout = () => {
 
-  const {isOwner,navigate} = useAppContext()
+  const { isOwner, navigate, user, ownerHotels, ownerDataLoaded } = useAppContext()
   useEffect(()=>{
-    if(!isOwner){
+    if(ownerDataLoaded && (!user || (!isOwner && ownerHotels.length === 0))){
       navigate('/')
     }
-  },[isOwner, navigate])
+  },[isOwner, navigate, user, ownerHotels, ownerDataLoaded])
   
   return (
     <div className='flex flex-col h-screen'>

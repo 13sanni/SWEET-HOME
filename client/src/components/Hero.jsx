@@ -18,7 +18,7 @@ const Hero = () => {
   const destination = searchParams.get('destination') || '';
   const checkInDate = searchParams.get('checkInDate') || '';
   const checkOutDate = searchParams.get('checkOutDate') || '';
-  const guests = searchParams.get('guests') || 1;
+  const roomsRequested = searchParams.get('roomsRequested') || 1;
 
   const updateParam = (key, value) => {
     const newParams = new URLSearchParams(searchParams.toString());
@@ -34,7 +34,7 @@ const Hero = () => {
       return;
     }
 
-    navigate(`/rooms?destination=${destination}&checkInDate=${checkInDate}&checkOutDate=${checkOutDate}&guests=${guests}`);
+    navigate(`/rooms?destination=${destination}&checkInDate=${checkInDate}&checkOutDate=${checkOutDate}&roomsRequested=${roomsRequested}`);
 
     if (user) {
       try {
@@ -126,16 +126,16 @@ const Hero = () => {
           />
         </div>
 
-        {/* Guests */}
+        {/* Rooms */}
         <div className='flex md:flex-col max-md:gap-2 max-md:items-center'>
-          <label htmlFor="guests">Guests</label>
+          <label htmlFor="roomsRequested">Rooms</label>
           <input
-            name="guests"
-            value={guests}
-            onChange={(e) => updateParam('guests', e.target.value)}
+            name="roomsRequested"
+            value={roomsRequested}
+            onChange={(e) => updateParam('roomsRequested', e.target.value)}
             type="number"
             required
-            id='guests'
+            id='roomsRequested'
             placeholder='1'
             className="rounded border border-gray-200 px-3 py-1.5 mt-1.5 text-sm outline-none max-w-16"
           />

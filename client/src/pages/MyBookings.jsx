@@ -87,7 +87,7 @@ const MyBookings = () => {
                             </div>
                             <div className='flex items-center gap-1 text-sm text-gray-500'>
                                 <img src={assets.guestsIcon} alt="guests-icon" />
-                                <span>Guests:{booking.guests}</span>
+                                <span>Rooms:{booking.roomsBooked}</span>
                             </div>
                             <p className='text-base'>Total: ${booking.totalPrice}</p>
                         </div>

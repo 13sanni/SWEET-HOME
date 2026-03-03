@@ -1,188 +1,277 @@
-import Hotel from "../models/Hotel.js"
-import {v2 as cloudinary} from "cloudinary"
-import Room from "../models/Room.js"
-import Booking from "../models/Booking.js"
+import { v2 as cloudinary } from "cloudinary";
+import Booking from "../models/Booking.js";
+import Hotel from "../models/Hotel.js";
+import Room from "../models/Room.js";
 
-//API to create a new room for a hotel
-export const createRoom = async(req,res)=>{
-    try {
-        const {roomType,pricePerNight,amenities} = req.body
-        const hotel = await Hotel.findOne({owner:req.user._id})
+const isRangeOverlap = (newCheckIn, newCheckOut, existingCheckIn, existingCheckOut) =>
+  newCheckIn < existingCheckOut && newCheckOut > existingCheckIn;
 
-        if(!hotel) return res.json({success:false, message:"No Hotel Found"})
-        if (!req.files || req.files.length === 0) {
-            return res.json({ success: false, message: "At least one room image is required" });
-        }
-
-        //upload images to cloudinary
-        const uploadImages  = req.files.map(async(file)=>{
-            const response = await cloudinary.uploader.upload(file.path)
-            return response.secure_url
-        })
-        //wait for all uploads to complete
-        const images = await Promise.all(uploadImages)
-
-        await Room.create({
-            hotel:hotel._id,
-            roomType,
-            pricePerNight:+pricePerNight,//same as Number(pricePerNight)
-            amenities:JSON.parse(amenities),
-            images,
-        })
-        res.json({success:true,message:"Room Created Successfully"})
-    } catch (error) {
-        res.json({success:false,message:error.message})
+const getBookedCountForRange = (bookings, checkIn, checkOut) =>
+  bookings.reduce((sum, booking) => {
+    if (isRangeOverlap(checkIn, checkOut, booking.checkIn, booking.checkOut)) {
+      return sum + booking.roomsBooked;
     }
-}
+    return sum;
+  }, 0);
 
-
-// API to get all rooms
-export const getAllRooms = async(req,res)=>{
-    try {
-        const rooms = await Room.find({isAvailable:true}).populate({
-            path:'hotel',
-            populate:{
-                path:'owner',
-                select:'image'
-            }
-        }).sort({createdAt : -1})
-        res.json({success:true,rooms})
-    } catch (error) {
-        res.json({success:false,message:error.message})
-    }
-}
-
-
-export const getRooms = async (req, res) => {
-    try {
-        const { checkInDate, checkOutDate } = req.query;
-
-        // Step 1: Get all rooms that are marked isAvailable: true
-        let availableRooms = await Room.find({ isAvailable: true }).populate({
-            path: 'hotel',
-            populate: {
-                path: 'owner',
-                select: 'image'
-            }
-        }).sort({ createdAt: -1 });
-
-        // If no date filters, return all available rooms
-        if (!checkInDate || !checkOutDate) {
-            return res.json({ success: true, rooms: availableRooms });
-        }
-
-        // Step 2: Convert strings to Date objects
-        const checkIn = new Date(checkInDate);
-        const checkOut = new Date(checkOutDate);
-
-        // Step 3: Get all room IDs
-        const allRoomIds = availableRooms.map(room => room._id);
-
-        // Step 4: Find bookings that overlap with the desired range
-        const overlappingBookings = await Booking.find({
-            room: { $in: allRoomIds },
-            $or: [
-                {
-                    checkInDate: { $lt: checkOut },
-                    checkOutDate: { $gt: checkIn }
-                }
-            ]
-        }).select('room');
-
-        // Step 5: Extract room IDs that are booked
-        const bookedRoomIds = overlappingBookings.map(b => b.room.toString());
-
-        // Step 6: Filter out booked rooms
-        const filteredRooms = availableRooms.filter(
-            room => !bookedRoomIds.includes(room._id.toString())
-        );
-
-        return res.json({ success: true, rooms: filteredRooms });
-    } catch (error) {
-        res.json({ success: false, message: error.message });
-    }
+const toRoomWithAvailability = (roomDoc, checkIn = null, checkOut = null) => {
+  const room = roomDoc.toObject();
+  room.price = Number(room.price ?? room.pricePerNight ?? 0);
+  room.totalRooms = Number(room.totalRooms ?? 1);
+  room.isActive = room.isActive ?? room.isAvailable ?? true;
+  const bookedCount =
+    checkIn && checkOut ? getBookedCountForRange(room.bookings || [], checkIn, checkOut) : 0;
+  room.availableRooms = Math.max((room.totalRooms || 0) - bookedCount, 0);
+  return room;
 };
 
+const parseAmenities = (amenities) => {
+  if (!amenities) return [];
+  if (Array.isArray(amenities)) return amenities;
 
-
-
-//API to get all rooms for a specific hotel
-export const getOwnerRooms = async(req,res)=>{
+  if (typeof amenities === "string") {
     try {
-        const hotelData = await Hotel.findOne({owner : req.user._id})
-        if (!hotelData) {
-            return res.json({ success: false, message: "No Hotel Found" });
-        }
-        const rooms = await Room.find({hotel:hotelData._id.toString()}).populate("hotel")
-        res.json({success:true,rooms})
-    } catch (error) {
-        res.json({success:false,message:error.message})
+      const parsed = JSON.parse(amenities);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
     }
-}
+  }
 
-//API to toggle availability of a room
-export const toggleRoomAvailability = async(req,res)=>{
-    try {
-        const {roomId} = req.body;
-        const ownerHotel = await Hotel.findOne({ owner: req.user._id });
-        if (!ownerHotel) {
-            return res.json({ success: false, message: "No Hotel Found" });
-        }
+  return [];
+};
 
-        const roomData = await Room.findById(roomId)
-        if (!roomData) {
-            return res.json({ success: false, message: "Room not found" });
-        }
-        if (roomData.hotel !== ownerHotel._id.toString()) {
-            return res.status(403).json({ success: false, message: "Unauthorized room action" });
-        }
+// POST /api/rooms
+export const createRoom = async (req, res) => {
+  try {
+    const { hotelId, roomType, price, totalRooms, amenities } = req.body;
 
-        roomData.isAvailable = !roomData.isAvailable
-        await roomData.save()
-        res.json({success:true,message:"Room Availability Updated"})
-    } catch (error) {
-        res.json({success:false,message:error.message})
+    const hotel = await Hotel.findOne({ _id: hotelId, owner: req.user._id });
+    if (!hotel) {
+      return res.status(404).json({ success: false, message: "Hotel not found for this owner" });
     }
-}
 
-// ✅ API to get a single room by ID
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one room image is required" });
+    }
+
+    if (req.files.length > 4) {
+      return res.status(400).json({ success: false, message: "Maximum 4 images allowed per room type" });
+    }
+
+    const duplicateRoomType = await Room.findOne({
+      hotel: hotel._id,
+      roomType: { $regex: `^${roomType}$`, $options: "i" },
+      isActive: true,
+    });
+
+    if (duplicateRoomType) {
+      return res.status(409).json({ success: false, message: "This room type already exists for the hotel" });
+    }
+
+    const uploadImages = req.files.map(async (file) => {
+      const response = await cloudinary.uploader.upload(file.path);
+      return response.secure_url;
+    });
+
+    const images = await Promise.all(uploadImages);
+
+    const room = await Room.create({
+      hotel: hotel._id,
+      roomType: roomType.trim(),
+      price: Number(price),
+      totalRooms: Number(totalRooms),
+      amenities: parseAmenities(amenities),
+      images,
+    });
+
+    return res.status(201).json({ success: true, message: "Room created", room });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/rooms and GET /api/rooms/all
+export const getRooms = async (req, res) => {
+  try {
+    const { checkInDate, checkOutDate } = req.query;
+    const hasDateFilter = Boolean(checkInDate && checkOutDate);
+
+    let checkIn = null;
+    let checkOut = null;
+
+    if (hasDateFilter) {
+      checkIn = new Date(checkInDate);
+      checkOut = new Date(checkOutDate);
+      if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
+        return res.status(400).json({ success: false, message: "Invalid check-in/check-out dates" });
+      }
+    }
+
+    const roomDocs = await Room.find({})
+      .populate({
+        path: "hotel",
+        populate: { path: "owner", select: "image username" },
+      })
+      .sort({ createdAt: -1 });
+
+    const rooms = roomDocs
+      .filter((room) => Boolean(room.hotel))
+      .map((room) => toRoomWithAvailability(room, checkIn, checkOut))
+      .filter((room) => room.isActive)
+      .filter((room) => (!hasDateFilter ? true : room.availableRooms > 0));
+
+    return res.status(200).json({ success: true, rooms });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllRooms = getRooms;
+
+// GET /api/rooms/owner
+export const getOwnerRooms = async (req, res) => {
+  try {
+    const ownerHotels = await Hotel.find({ owner: req.user._id }).select("_id");
+    if (!ownerHotels.length) {
+      return res.status(200).json({ success: true, rooms: [] });
+    }
+
+    const hotelIds = ownerHotels.map((hotel) => hotel._id);
+    const roomDocs = await Room.find({ hotel: { $in: hotelIds } }).populate("hotel").sort({ createdAt: -1 });
+    const rooms = roomDocs.map((room) => toRoomWithAvailability(room));
+
+    return res.status(200).json({ success: true, rooms });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/rooms/toggle-availability
+export const toggleRoomAvailability = async (req, res) => {
+  try {
+    const { roomId } = req.body;
+
+    const room = await Room.findById(roomId).populate("hotel");
+    if (!room || !room.hotel) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    if (room.hotel.owner !== req.user._id) {
+      return res.status(403).json({ success: false, message: "Unauthorized room action" });
+    }
+
+    room.isActive = !(room.isActive ?? room.isAvailable ?? true);
+    await room.save();
+
+    return res.status(200).json({ success: true, message: "Room availability updated", room });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/rooms/:id
 export const getRoomById = async (req, res) => {
   try {
     const room = await Room.findById(req.params.id).populate({
-      path: 'hotel',
-      populate: {
-        path: 'owner',
-        select: 'image'
-      }
+      path: "hotel",
+      populate: { path: "owner", select: "image username" },
     });
 
     if (!room) {
-      return res.status(404).json({ success: false, message: 'Room not found' });
+      return res.status(404).json({ success: false, message: "Room not found" });
     }
 
-    res.json({ success: true, room });
+    const checkInDate = req.query.checkInDate;
+    const checkOutDate = req.query.checkOutDate;
+    let roomResponse = room.toObject();
+
+    if (checkInDate && checkOutDate) {
+      const checkIn = new Date(checkInDate);
+      const checkOut = new Date(checkOutDate);
+      if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
+        return res.status(400).json({ success: false, message: "Invalid check-in/check-out dates" });
+      }
+      roomResponse = toRoomWithAvailability(room, checkIn, checkOut);
+    } else {
+      roomResponse.availableRooms = room.totalRooms;
+    }
+
+    return res.status(200).json({ success: true, room: roomResponse });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-export const filterRoomsByDate = async (req, res) => {
+// GET /api/rooms/:id/availability
+export const getRoomAvailability = async (req, res) => {
   try {
-    const { roomId, checkInDate, checkOutDate } = req.body;
+    const { id } = req.params;
+    const { checkInDate, checkOutDate, roomsRequested = 1 } = req.query;
 
-    const bookings = await Booking.find({
-      room: roomId,
-      checkInDate: { $lt: new Date(checkOutDate) },
-      checkOutDate: { $gt: new Date(checkInDate) },
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    const roomsNeeded = Number(roomsRequested);
+
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
+      return res.status(400).json({ success: false, message: "Invalid check-in/check-out dates" });
+    }
+
+    if (!Number.isFinite(roomsNeeded) || roomsNeeded <= 0) {
+      return res.status(400).json({ success: false, message: "roomsRequested must be a positive number" });
+    }
+
+    const room = await Room.findById(id);
+    if (!room) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    const isActive = room.isActive ?? room.isAvailable ?? true;
+    if (!isActive) {
+      return res.status(409).json({ success: false, message: "Room type is inactive" });
+    }
+
+    const alreadyBooked = getBookedCountForRange(room.bookings || [], checkIn, checkOut);
+    const availableRooms = Math.max(Number(room.totalRooms ?? 1) - alreadyBooked, 0);
+    const canBook = availableRooms >= roomsNeeded;
+
+    return res.status(200).json({
+      success: true,
+      availableRooms,
+      requestedRooms: roomsNeeded,
+      canBook,
     });
-
-    const isAvailable = bookings.length === 0;
-    res.json({ success: true, isAvailable });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// DELETE /api/rooms/:id
+export const deleteOwnerRoom = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id).populate("hotel");
+    if (!room || !room.hotel) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
 
+    if (room.hotel.owner !== req.user._id) {
+      return res.status(403).json({ success: false, message: "Unauthorized room action" });
+    }
 
+    const now = new Date();
+    const hasFutureBookings = (room.bookings || []).some((booking) => new Date(booking.checkOut) > now);
+    if (hasFutureBookings) {
+      return res.status(409).json({
+        success: false,
+        message: "Room has future bookings and cannot be deleted",
+      });
+    }
 
+    await Booking.deleteMany({ room: room._id });
+    await room.deleteOne();
+
+    return res.status(200).json({ success: true, message: "Room deleted" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

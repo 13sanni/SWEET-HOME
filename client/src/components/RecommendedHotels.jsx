@@ -7,7 +7,7 @@ const RecommendedHotels = () => {
   const { rooms, searchedCities } = useAppContext();
 
   const recommended = useMemo(
-    () => rooms.filter((room) => searchedCities.includes(room.hotel.city)),
+    () => rooms.filter((room) => room.hotel && searchedCities.includes(room.hotel.city)),
     [rooms, searchedCities]
   );
 

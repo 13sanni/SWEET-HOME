@@ -1,134 +1,206 @@
-import transporter from "../configs/nodemailer.js"
-import Booking from "../models/Booking.js"
-import Hotel from "../models/Hotel.js"
-import Room from "../models/Room.js"
-import stripe from "stripe"
+import transporter from "../configs/nodemailer.js";
+import Booking from "../models/Booking.js";
+import Hotel from "../models/Hotel.js";
+import Room from "../models/Room.js";
+import stripe from "stripe";
 
+const isRangeOverlap = (newCheckIn, newCheckOut, existingCheckIn, existingCheckOut) =>
+  newCheckIn < existingCheckOut && newCheckOut > existingCheckIn;
 
+const getBookedCountForRange = (bookings, checkIn, checkOut) =>
+  bookings.reduce((sum, booking) => {
+    if (isRangeOverlap(checkIn, checkOut, booking.checkIn, booking.checkOut)) {
+      return sum + booking.roomsBooked;
+    }
+    return sum;
+  }, 0);
 
+const parseBookingPayload = (body) => {
+  const roomId = body.roomId || body.room;
+  const checkIn = body.checkIn || body.checkInDate;
+  const checkOut = body.checkOut || body.checkOutDate;
+  const roomsRequested = Number(body.roomsRequested ?? 1);
+  return { roomId, checkIn, checkOut, roomsRequested };
+};
 
-//API to create a new booking
-//POST /api/bookings/book
+const sendBookingConfirmationEmail = async (booking, roomData, user) => {
+  if (!process.env.SENDER_EMAIL || !user?.email) return;
 
-export const createBooking = async(req,res)=>{
-    try {
-        const {room,checkInDate,checkOutDate,guests} = req.body
-        const user=req.user._id
+  const mailOptions = {
+    from: process.env.SENDER_EMAIL,
+    to: user.email,
+    subject: "Booking Confirmation",
+    html: `
+      <h2>Booking Confirmation</h2>
+      <p>Dear ${user.username},</p>
+      <p>Your booking has been confirmed.</p>
+      <ul>
+        <li><strong>Booking ID:</strong> ${booking._id}</li>
+        <li><strong>Hotel:</strong> ${roomData.hotel?.name || "N/A"}</li>
+        <li><strong>Room Type:</strong> ${roomData.roomType}</li>
+        <li><strong>Rooms Booked:</strong> ${booking.roomsBooked}</li>
+        <li><strong>Check-in:</strong> ${booking.checkInDate.toDateString()}</li>
+        <li><strong>Check-out:</strong> ${booking.checkOutDate.toDateString()}</li>
+        <li><strong>Amount:</strong> ${process.env.CURRENCY || "$"} ${booking.totalPrice}</li>
+      </ul>
+    `,
+  };
 
-        const roomData = await Room.findById(room).populate("hotel")
-        if (!roomData || !roomData.isAvailable) {
-            return res.json({ success: false, message: "Room is not available" });
-        }
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.warn("Booking email send failed:", error.message);
+  }
+};
 
-        let totalPrice = roomData.pricePerNight
+// POST /api/bookings
+export const createBooking = async (req, res) => {
+  const session = await Booking.startSession();
 
-        //calculate totalPrice based on nights
-        const checkIn = new Date(checkInDate)
-        const checkOut = new Date(checkOutDate)
-        if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
-            return res.json({ success: false, message: "Invalid check-in/check-out dates" });
-        }
+  try {
+    const { roomId, checkIn, checkOut, roomsRequested } = parseBookingPayload(req.body);
+    const user = req.user._id;
 
-        const overlappingBooking = await Booking.findOne({
-            room,
-            checkInDate: { $lt: checkOut },
-            checkOutDate: { $gt: checkIn }
-        })
-        if (overlappingBooking) {
-            return res.json({ success: false, message: "Room already booked for selected dates" });
-        }
+    const parsedCheckIn = new Date(checkIn);
+    const parsedCheckOut = new Date(checkOut);
 
-        const timeDiff = checkOut.getTime() - checkIn.getTime()
-        const nights = Math.ceil(timeDiff/(1000*3600*24))
-        if (nights <= 0) {
-            return res.json({ success: false, message: "Invalid booking duration" });
-        }
+    if (
+      !roomId ||
+      Number.isNaN(parsedCheckIn.getTime()) ||
+      Number.isNaN(parsedCheckOut.getTime()) ||
+      parsedCheckOut <= parsedCheckIn
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid booking request" });
+    }
 
-        totalPrice*=nights
-        const booking = await Booking.create({
+    if (!Number.isFinite(roomsRequested) || roomsRequested <= 0) {
+      return res.status(400).json({ success: false, message: "roomsRequested must be a positive number" });
+    }
+
+    let bookingDoc = null;
+    let roomDataForEmail = null;
+
+    await session.withTransaction(async () => {
+      const roomData = await Room.findById(roomId).populate("hotel").session(session);
+      const isActive = roomData ? roomData.isActive ?? roomData.isAvailable ?? true : false;
+      if (!roomData || !isActive) {
+        const error = new Error("Room is not available");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const overlappingRoomsBooked = getBookedCountForRange(
+        roomData.bookings || [],
+        parsedCheckIn,
+        parsedCheckOut
+      );
+      const totalRooms = Number(roomData.totalRooms ?? 1);
+      const pricePerNight = Number(roomData.price ?? roomData.pricePerNight ?? 0);
+      const availableRooms = totalRooms - overlappingRoomsBooked;
+
+      if (availableRooms < roomsRequested) {
+        const error = new Error(`Only ${Math.max(availableRooms, 0)} room(s) available for selected dates`);
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const nights = Math.ceil(
+        (parsedCheckOut.getTime() - parsedCheckIn.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (nights <= 0) {
+        const error = new Error("Invalid booking duration");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const totalPrice = pricePerNight * nights * roomsRequested;
+
+      const created = await Booking.create(
+        [
+          {
             user,
-            room,
-            hotel:roomData.hotel._id,
-            guests:+guests,
-            checkInDate,
-            checkOutDate,
-            totalPrice
-        })
+            room: roomData._id,
+            hotel: roomData.hotel._id,
+            checkInDate: parsedCheckIn,
+            checkOutDate: parsedCheckOut,
+            roomsBooked: roomsRequested,
+            totalPrice,
+            paymentMethod: "Pay At Hotel",
+            status: "confirmed",
+          },
+        ],
+        { session }
+      );
+      bookingDoc = created[0];
 
-        const mailOptions = {
-            from: process.env.SENDER_EMAIL,
-            to: req.user.email,
-            subject: "Booking Confirmation",
-            html : `
-                  <h2>Booking Confirmation</h2>
-                  <p>Dear ${req.user.username},</p>
-                  <p>Thank you for your booking. Here are the details:</p>
-                  <ul>
-                      <li><strong>Booking ID</strong>: ${booking._id}</li>
-                      <li><strong>Hotel</strong>: ${roomData.hotel.name}</li>
-                      <li><strong>Room Type</strong>: ${roomData.roomType}</li>
-                      <li><strong>Location</strong>: ${roomData.hotel.address}</li>
-                      <li><strong>Check-in Date</strong>: ${booking.checkInDate.toDateString()}</li>
-                      <li><strong>Check-out Date</strong>: ${booking.checkOutDate.toDateString()}</li>
-                      <li><strong>Booking Amount</strong>: ${process.env.CURRENCY || '$'} ${booking.totalPrice}</li>
-                  </ul>
-                  <p>We look forward to welcoming you!</p>
-                  <p>If you have any questions or need assistance, feel free to contact us.</p>
-                    <p>Best regards,</p>
-                    <p>The Hotel Team</p>
-        `
-        }
+      roomData.bookings.push({
+        bookingId: bookingDoc._id,
+        checkIn: parsedCheckIn,
+        checkOut: parsedCheckOut,
+        roomsBooked: roomsRequested,
+      });
+      await roomData.save({ session });
+      roomDataForEmail = roomData;
+    });
 
-        await transporter.sendMail(mailOptions)
-        res.json({success:true,message:"Booking created successfully"})
-    } catch (error) {
-        console.log(error)
-        res.json({success:false, message:"Failed to create booking"})
+    if (!bookingDoc) {
+      return res.status(500).json({ success: false, message: "Failed to create booking" });
     }
-}
 
-//API to get all bookings for a user 
-//GET /api/bookings/user
+    await sendBookingConfirmationEmail(bookingDoc, roomDataForEmail, req.user);
+    return res.status(201).json({ success: true, message: "Booking created successfully", booking: bookingDoc });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({ success: false, message: error.message || "Failed to create booking" });
+  } finally {
+    await session.endSession();
+  }
+};
 
-export const getUserBookings = async(req,res)=>{
-    try {
-        const user = req.user._id
-        const bookings = await Booking.find({user}).populate("room hotel").sort({createdAt:-1})
-        res.json({success:true,bookings})
-    } catch (error) {
-        res.json({success:false,messsage:"Failed to fetch bookings"})
+// GET /api/bookings/user
+export const getUserBookings = async (req, res) => {
+  try {
+    const user = req.user._id;
+    const bookings = await Booking.find({ user }).populate("room hotel").sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, bookings });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch bookings" });
+  }
+};
+
+// GET /api/bookings/hotel
+export const getHotelBookings = async (req, res) => {
+  try {
+    const ownerHotels = await Hotel.find({ owner: req.user._id }).select("_id");
+    if (!ownerHotels.length) {
+      return res.status(200).json({
+        success: true,
+        dashboardData: { totalBookings: 0, totalRevenue: 0, bookings: [] },
+      });
     }
-}
 
-//to get Bookings deatils for a particular hotel owner 
- export const getHotelBookings = async(req,res)=>{
-    try {
-        const hotel = await Hotel.findOne({owner:req.user._id})
-        if(!hotel){
-            return res.json({success:false,message:"No Hotel Found"})
-        }
-        const bookings = await Booking.find({hotel:hotel._id}).populate("room hotel user").sort({createdAt:-1})
+    const hotelIds = ownerHotels.map((hotel) => hotel._id);
+    const bookings = await Booking.find({ hotel: { $in: hotelIds } })
+      .populate("room hotel user")
+      .sort({ createdAt: -1 });
 
-        //total bookings
-        const totalBookings = bookings.length
-        //total revenue
-        const totalRevenue = bookings.reduce((acc,booking)=>acc+booking.totalPrice,0)
+    const totalBookings = bookings.length;
+    const totalRevenue = bookings.reduce((acc, booking) => acc + booking.totalPrice, 0);
 
-        res.json({success:true,dashboardData: {totalBookings,totalRevenue,bookings}})
-    } catch (error) {
-        res.json({success:false,message:"Failed to fetch bookings"})
-    }
- }
+    return res.status(200).json({ success: true, dashboardData: { totalBookings, totalRevenue, bookings } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch bookings" });
+  }
+};
 
+// DELETE /api/bookings/:id
+export const cancelBooking = async (req, res) => {
+  const session = await Booking.startSession();
 
-   export const cancelBooking = async (req, res) => {
   try {
     const bookingId = req.params.id;
-    const userId = req.user._id || req.user;
-
-    const booking = await Booking.findById(bookingId)
-      .populate('hotel', 'name')
-      .populate('room', 'roomType');
+    const userId = req.user._id;
+    const booking = await Booking.findById(bookingId);
 
     if (!booking) {
       return res.status(404).json({ success: false, message: "Booking not found" });
@@ -138,96 +210,82 @@ export const getUserBookings = async(req,res)=>{
       return res.status(403).json({ success: false, message: "Unauthorized to cancel this booking" });
     }
 
-    await Booking.findByIdAndDelete(bookingId);
+    await session.withTransaction(async () => {
+      const removeByIdResult = await Room.updateOne(
+        { _id: booking.room },
+        { $pull: { bookings: { bookingId: booking._id } } },
+        { session }
+      );
 
-    console.log("✅ Booking cancelled:", bookingId);
+      if (removeByIdResult.modifiedCount === 0) {
+        await Room.updateOne(
+          { _id: booking.room },
+          {
+            $pull: {
+              bookings: {
+                checkIn: booking.checkInDate,
+                checkOut: booking.checkOutDate,
+                roomsBooked: booking.roomsBooked,
+              },
+            },
+          },
+          { session }
+        );
+      }
+      await Booking.findByIdAndDelete(booking._id, { session });
+    });
 
-    const mailOptions = {
-      from: process.env.SENDER_EMAIL,
-      to: req.user.email,
-      subject: "Booking Cancellation Confirmation",
-      html: `
-        <h2>Booking Cancelled</h2>
-        <p>Dear ${req.user.username},</p>
-        <p>Your booking has been successfully cancelled. Below are the cancelled booking details:</p>
-        <ul>
-          <li><strong>Booking ID:</strong> ${booking._id}</li>
-          <li><strong>Hotel:</strong> ${booking.hotel?.name || 'N/A'}</li>
-          <li><strong>Room Type:</strong> ${booking.room?.roomType || 'N/A'}</li>
-          <li><strong>Check-in:</strong> ${new Date(booking.checkInDate).toDateString()}</li>
-          <li><strong>Check-out:</strong> ${new Date(booking.checkOutDate).toDateString()}</li>
-          <li><strong>Total Amount:</strong> ${process.env.CURRENCY || '$'} ${booking.totalPrice}</li>
-        </ul>
-        <p>We hope to assist you with another stay in the future.</p>
-        <p>Best regards,<br/>Tourix Team</p>
-      `
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log("📧 Cancellation email sent to", req.user.email);
-    } catch (emailErr) {
-      console.error("❌ Error sending cancellation email:", emailErr.message);
-    }
-
-    // ✅ Always respond to the client
-    res.status(200).json({ success: true, message: "Booking cancelled successfully" });
-
+    return res.status(200).json({ success: true, message: "Booking cancelled successfully" });
   } catch (error) {
-    console.error("🔥 Error cancelling booking:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  } finally {
+    await session.endSession();
   }
 };
 
-
-
-
-
- export const stripePayment = async(req,res)=>{
-    try {
-        const {bookingId} = req.body;
-        const booking = await Booking.findById(bookingId)
-        if (!booking) {
-            return res.json({ success: false, message: "Booking not found" });
-        }
-        if (booking.user !== req.user._id) {
-            return res.status(403).json({ success: false, message: "Unauthorized payment action" });
-        }
-
-        const roomData = await Room.findById(booking.room).populate("hotel")
-        if (!roomData) {
-            return res.json({ success: false, message: "Room not found" });
-        }
-        const totalPrice = booking.totalPrice
-
-        const origin = req.headers.origin || process.env.FRONTEND_URL || "http://localhost:5173";
-        const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
-
-        const line_items = [
-            {
-                price_data:{
-                    currency:"usd",
-                    product_data:{
-                        name: roomData.hotel.name,
-                    },
-                    unit_amount: totalPrice * 100, // Convert to cents
-                },
-                quantity: 1,
-            }
-        ]
-        //create a checkout session
-        const session = await stripeInstance.checkout.sessions.create({
-            line_items,
-            mode:"payment",
-            success_url:`${origin}/loader/my-bookings`,
-            cancel_url:`${origin}/my-bookings`,
-            metadata:{
-                bookingId,
-            }
-        })
-        res.json({success:true,url:session.url})
-
-    } catch (error) {
-        res.json({success:false,message:"Payment failed"})
+// POST /api/bookings/stripe-payment
+export const stripePayment = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
     }
- }
+
+    if (booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized payment action" });
+    }
+
+    const roomData = await Room.findById(booking.room).populate("hotel");
+    if (!roomData) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    const totalPrice = booking.totalPrice;
+    const origin = req.headers.origin || process.env.FRONTEND_URL || "http://localhost:5173";
+    const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+
+    const line_items = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: { name: roomData.hotel?.name || roomData.roomType },
+          unit_amount: totalPrice * 100,
+        },
+        quantity: 1,
+      },
+    ];
+
+    const session = await stripeInstance.checkout.sessions.create({
+      line_items,
+      mode: "payment",
+      success_url: `${origin}/loader/my-bookings`,
+      cancel_url: `${origin}/my-bookings`,
+      metadata: { bookingId },
+    });
+
+    return res.status(200).json({ success: true, url: session.url });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Payment failed" });
+  }
+};

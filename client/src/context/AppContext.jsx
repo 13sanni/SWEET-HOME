@@ -1,7 +1,7 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useUser, useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "react-hot-toast";
 
 const normalizeBackendUrl = (url = "") => {
@@ -27,6 +27,8 @@ export const AppProvider = ({ children }) => {
   const [searchedCities, setSearchedCities] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [roomsByDateRange, setRoomsByDateRange] = useState([]);
+  const [ownerHotels, setOwnerHotels] = useState([]);
+  const [ownerDataLoaded, setOwnerDataLoaded] = useState(false);
 
   useEffect(() => {
     if (!backendUrl) {
@@ -37,18 +39,18 @@ export const AppProvider = ({ children }) => {
     console.log("API Base URL:", backendUrl);
   }, []);
 
-  const fetchAllRooms = async()=>{
-        try {
-            const {data} = await axios.get('/api/rooms/all')  
-            if(data.success){
-                setRooms(data.rooms)
-            }else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || error.message)
-        }
+  const fetchAllRooms = async () => {
+    try {
+      const { data } = await axios.get("/api/rooms/all");
+      if (data.success) {
+        setRooms(data.rooms);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message);
     }
+  };
 
   const fetchRoomsByDateRange = async () => {
     const checkInDate = searchParams.get("checkInDate");
@@ -59,9 +61,6 @@ export const AppProvider = ({ children }) => {
     try {
       const { data } = await axios.get("/api/rooms", {
         params: { checkInDate, checkOutDate },
-        headers: {
-          Authorization: `Bearer ${await getToken()}`,
-        },
       });
       if (data.success) {
         setRoomsByDateRange(data.rooms);
@@ -76,18 +75,31 @@ export const AppProvider = ({ children }) => {
   const fetchUser = async () => {
     try {
       const { data } = await axios.get("/api/user", {
-        headers: {
-          Authorization: `Bearer ${await getToken()}`,
-        },
+        headers: { Authorization: `Bearer ${await getToken()}` },
       });
 
       if (data.success) {
         setIsOwner(data.role === "HotelOwner");
-        setSearchedCities(data.recentSearchedCities);
+        setSearchedCities(data.recentSearchedCities || []);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message);
+    }
+  };
+
+  const fetchOwnerHotels = async () => {
+    if (!user) return;
+    try {
+      const { data } = await axios.get("/api/hotels/owner", {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+      if (data.success) {
+        setOwnerHotels(data.hotels || []);
+        if ((data.hotels || []).length > 0) {
+          setIsOwner(true);
+        }
       } else {
-        setTimeout(() => {
-          fetchUser();
-        }, 5000);
+        toast.error(data.message);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message);
@@ -95,14 +107,34 @@ export const AppProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchUser();
-    }
+    let active = true;
+
+    const bootstrapUserData = async () => {
+      if (user) {
+        setOwnerDataLoaded(false);
+        await fetchUser();
+        await fetchOwnerHotels();
+        if (active) {
+          setOwnerDataLoaded(true);
+        }
+      } else {
+        setIsOwner(false);
+        setOwnerHotels([]);
+        setSearchedCities([]);
+        setOwnerDataLoaded(true);
+      }
+    };
+
+    bootstrapUserData();
+
+    return () => {
+      active = false;
+    };
   }, [user]);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchAllRooms();
-  },[])
+  }, []);
 
   useEffect(() => {
     fetchRoomsByDateRange();
@@ -125,12 +157,15 @@ export const AppProvider = ({ children }) => {
     fetchRoomsByDateRange,
     fetchUser,
     roomsByDateRange,
-    setRoomsByDateRange
+    setRoomsByDateRange,
+    ownerHotels,
+    setOwnerHotels,
+    fetchOwnerHotels,
+    fetchAllRooms,
+    ownerDataLoaded,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-export const useAppContext = () => {
-  return useContext(AppContext);
-};
+export const useAppContext = () => useContext(AppContext);

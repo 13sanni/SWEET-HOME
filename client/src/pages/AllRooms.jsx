@@ -30,7 +30,7 @@ const AllRooms = () => {
 
   const checkInDate = searchParams.get('checkInDate');
   const checkOutDate = searchParams.get('checkOutDate');
-  const guests = searchParams.get('guests') || 1;
+  const roomsRequested = searchParams.get('roomsRequested') || 1;
   const hasDateFilter = Boolean(checkInDate && checkOutDate);
 
   const [selectedSort, setSelectedSort] = useState('');
@@ -58,12 +58,12 @@ const AllRooms = () => {
     selectedFilters.priceRange.length === 0 ||
     selectedFilters.priceRange.some((range) => {
       const [min, max] = range.split(' to ').map(Number);
-      return room.pricePerNight >= min && room.pricePerNight <= max;
+      return room.price >= min && room.price <= max;
     });
 
   const sortRooms = (a, b) => {
-    if (selectedSort === 'Price: Low to High') return a.pricePerNight - b.pricePerNight;
-    if (selectedSort === 'Price: High to Low') return b.pricePerNight - a.pricePerNight;
+    if (selectedSort === 'Price: Low to High') return a.price - b.price;
+    if (selectedSort === 'Price: High to Low') return b.price - a.price;
     if (selectedSort === 'Newest First') return new Date(b.createdAt) - new Date(a.createdAt);
     return 0;
   };
@@ -106,7 +106,7 @@ const AllRooms = () => {
       return;
     }
 
-    navigate(`/rooms/${roomId}?checkInDate=${checkInDate}&checkOutDate=${checkOutDate}&guests=${guests}`);
+    navigate(`/rooms/${roomId}?checkInDate=${checkInDate}&checkOutDate=${checkOutDate}&roomsRequested=${roomsRequested}`);
     scrollTo(0, 0);
   };
 
@@ -149,18 +149,21 @@ const AllRooms = () => {
                 <span>{room.hotel.address}</span>
               </div>
               <div className='flex flex-wrap items-center mt-3 mb-6 gap-4'>
-                {room.amenities.map((item, index) => (
+                {(room.amenities || []).map((item, index) => (
                   <div key={index} className='flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f5f5ff]/70'>
-                    <img src={facilityIcons[item]} alt={item} className='w-5 h-5' />
+                    {facilityIcons[item] && <img src={facilityIcons[item]} alt={item} className='w-5 h-5' />}
                     <p className='text-xs'>{item}</p>
                   </div>
                 ))}
               </div>
               <div className='flex flex-row items-baseline gap-2'>
                 <p className='text-xl font-medium text-gray-700'>
-                  {currency} {room.pricePerNight} /night
+                  {currency} {room.price} /night
                 </p>
                 <p className='text-md text-gray-500'>({room.roomType})</p>
+                {hasDateFilter && (
+                  <p className='text-sm text-green-700'>{room.availableRooms} available</p>
+                )}
               </div>
             </div>
           </div>
