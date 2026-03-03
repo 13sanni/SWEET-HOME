@@ -16,13 +16,33 @@ export const createBooking = async(req,res)=>{
         const user=req.user._id
 
         const roomData = await Room.findById(room).populate("hotel")
+        if (!roomData || !roomData.isAvailable) {
+            return res.json({ success: false, message: "Room is not available" });
+        }
+
         let totalPrice = roomData.pricePerNight
 
         //calculate totalPrice based on nights
         const checkIn = new Date(checkInDate)
         const checkOut = new Date(checkOutDate)
+        if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
+            return res.json({ success: false, message: "Invalid check-in/check-out dates" });
+        }
+
+        const overlappingBooking = await Booking.findOne({
+            room,
+            checkInDate: { $lt: checkOut },
+            checkOutDate: { $gt: checkIn }
+        })
+        if (overlappingBooking) {
+            return res.json({ success: false, message: "Room already booked for selected dates" });
+        }
+
         const timeDiff = checkOut.getTime() - checkIn.getTime()
         const nights = Math.ceil(timeDiff/(1000*3600*24))
+        if (nights <= 0) {
+            return res.json({ success: false, message: "Invalid booking duration" });
+        }
 
         totalPrice*=nights
         const booking = await Booking.create({
@@ -83,7 +103,7 @@ export const getUserBookings = async(req,res)=>{
 //to get Bookings deatils for a particular hotel owner 
  export const getHotelBookings = async(req,res)=>{
     try {
-        const hotel = await Hotel.findOne({owner:req.auth.userId})
+        const hotel = await Hotel.findOne({owner:req.user._id})
         if(!hotel){
             return res.json({success:false,message:"No Hotel Found"})
         }
@@ -167,10 +187,20 @@ export const getUserBookings = async(req,res)=>{
     try {
         const {bookingId} = req.body;
         const booking = await Booking.findById(bookingId)
+        if (!booking) {
+            return res.json({ success: false, message: "Booking not found" });
+        }
+        if (booking.user !== req.user._id) {
+            return res.status(403).json({ success: false, message: "Unauthorized payment action" });
+        }
+
         const roomData = await Room.findById(booking.room).populate("hotel")
+        if (!roomData) {
+            return res.json({ success: false, message: "Room not found" });
+        }
         const totalPrice = booking.totalPrice
 
-        const {origin} = req.headers;
+        const origin = req.headers.origin || process.env.FRONTEND_URL || "http://localhost:5173";
         const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
 
         const line_items = [

@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { roomsDummyData } from '../../assets/assets'
 import Title from '../../components/Title'
 import {useAppContext} from '../../context/AppContext'
 import toast from 'react-hot-toast'
@@ -26,17 +25,17 @@ const ListRoom = () => {
 
     //toggle availability of rooms
     const toggleAvailability = async(roomId)=>{
-        const {data} = await axios.post('/api/rooms/toggle-availability',{roomId},{headers :{Authorization :`Bearer ${await getToken()}`}})
-        if(data.success){
-            toast.success(data.message)
-            fetchRooms()
-            setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-        }else{
-            toast.error(data)
+        try {
+            const {data} = await axios.post('/api/rooms/toggle-availability',{roomId},{headers :{Authorization :`Bearer ${await getToken()}`}})
+            if(data.success){
+                toast.success(data.message)
+                fetchRooms()
+            }else{
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
         }
-
     }
 
     useEffect(() => {

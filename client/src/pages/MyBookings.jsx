@@ -1,12 +1,12 @@
-import React,{use, useEffect, useState} from 'react'
+import React,{ useEffect, useState} from 'react'
 import Title from '../components/Title'
-import { assets, userBookingsDummyData } from '../assets/assets'
+import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
 import { toast } from 'react-hot-toast'
 
 const MyBookings = () => {
 
-  const [bookings, setBookings] = useState(userBookingsDummyData)
+  const [bookings, setBookings] = useState([])
   const {axios, getToken,user} = useAppContext()
 
   const fetchUserBookings = async()=>{

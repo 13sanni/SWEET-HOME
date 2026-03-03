@@ -5,7 +5,6 @@ import {toast} from "react-hot-toast"
 const HotelReg = () => {
 
   const {setShowHotelReg,axios,getToken,setIsOwner} = useAppContext()
-  console.log("Axios:", axios);
   
 
   const [name, setName] = useState("")
@@ -14,10 +13,7 @@ const HotelReg = () => {
   const [city, setCity] = useState("")
 
   const onSubmitHandler = async (e) => {
-    
     try {
-      e.preventDefault();
-      console.log("Form submitted!");
       e.preventDefault();
       const {data} = await axios.post(`/api/hotels`,{name,address,contact,city},{headers:{Authorization :`Bearer ${await getToken()}`}})
       if(data.success){

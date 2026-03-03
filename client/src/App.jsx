@@ -13,8 +13,6 @@ import AddRoom from './pages/hotelOwner/AddRoom'
 import ListRoom from './pages/hotelOwner/ListRoom'
 import {Toaster} from "react-hot-toast"
 import { useAppContext } from './context/AppContext'
-import AllAvailableRooms from './pages/AllAvailableRooms'
-import Testimonial from './components/Testimonial'
 import Loader from './components/Loader'
 
 const App = () => {
@@ -29,7 +27,7 @@ const {showHotelReg} = useAppContext()
     <div className='min-h-[70vh]'>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/all-available-rooms" element={<AllAvailableRooms />} />
+        <Route path="/all-available-rooms" element={<AllRooms />} />
         <Route path="/rooms" element={<AllRooms />} />
         <Route path="/rooms/:id" element={<RoomDetails />} />
         <Route path="/my-bookings" element={<MyBookings />} />

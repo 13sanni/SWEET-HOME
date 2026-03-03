@@ -1,6 +1,6 @@
 import React,{useState} from 'react'
 import Title from '../../components/Title'
-import { assets, dashboardDummyData } from '../../assets/assets'
+import { assets } from '../../assets/assets'
 import { useAppContext } from '../../context/AppContext'
 import { useEffect } from 'react'
 import {toast} from "react-hot-toast"

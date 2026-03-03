@@ -10,6 +10,12 @@ import connectCloudinary from "./configs/cloudinary.js";
 import roomRouter from "./routes/roomRoutes.js";
 import bookingRouter from "./routes/bookingRoute.js";
 import { stripeWebHooks } from "./controllers/stripeWebhooks.js";
+import {
+  CLERK_ENV_KEYS,
+  REQUIRED_ENV_KEYS,
+  getMissingEnvKeys,
+  hasEnvKeys,
+} from "./configs/validateEnv.js";
 
 
 const app = express()
@@ -36,10 +42,25 @@ app.use(cors({
 //API to listen to stripe webhooks
 app.post('/api/stripe', express.raw({type: 'application/json'}), stripeWebHooks)
 app.use(express.json())//all the requests will be passed throough the json method
-app.use(clerkMiddleware())//returns req.auth
+const missingEnvKeys = getMissingEnvKeys(REQUIRED_ENV_KEYS);
+if (missingEnvKeys.length) {
+  console.warn(`[env] Missing keys: ${missingEnvKeys.join(", ")}`);
+} else {
+  console.log("[env] All required keys are present.");
+}
 
+if (hasEnvKeys(CLERK_ENV_KEYS)) {
+  app.use(clerkMiddleware())//returns req.auth
+} else {
+  console.warn("Clerk keys are missing. Protected routes will return 401 until keys are configured.");
+}
 
-await connectDB()
+try {
+  await connectDB()
+} catch (error) {
+  console.error("Failed to connect MongoDB:", error.message);
+  process.exit(1);
+}
 connectCloudinary()
 
 

@@ -1,4 +1,4 @@
-import React,{useState,useEffect} from 'react'
+import React,{useState} from 'react'
 import Title from '../../components/Title'
 import { assets } from '../../assets/assets'
 import { useAppContext } from '../../context/AppContext'
@@ -70,9 +70,6 @@ const AddRoom = () => {
                     3: null,
                     4: null
                 })
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
             }
 
             else{

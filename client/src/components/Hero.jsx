@@ -2,9 +2,11 @@ import React,{useEffect} from 'react';
 import { assets, cities } from '../assets/assets';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const Hero = () => {
   const {
+    user,
     getToken,
     axios,
     setSearchedCities
@@ -28,30 +30,36 @@ const Hero = () => {
     e.preventDefault();
 
     if (!destination || !checkInDate || !checkOutDate || new Date(checkInDate) >= new Date(checkOutDate)) {
-      alert("Please fill all fields correctly.");
+      toast.error("Please fill all fields correctly.");
       return;
     }
 
     navigate(`/rooms?destination=${destination}&checkInDate=${checkInDate}&checkOutDate=${checkOutDate}&guests=${guests}`);
 
-    await axios.post('/api/user/store-recent-search', {
-      recentSearchedCity: destination
-    }, {
-      headers: { Authorization: `Bearer ${await getToken()}` }
-    });
+    if (user) {
+      try {
+        await axios.post(
+          '/api/user/store-recent-search',
+          { recentSearchedCity: destination },
+          { headers: { Authorization: `Bearer ${await getToken()}` } }
+        );
 
-    setSearchedCities((prev) => {
-      const updated = [...prev, destination];
-      if (updated.length > 3) updated.shift();
-      return updated;
-    });
+        setSearchedCities((prev) => {
+          const updated = [...prev, destination];
+          if (updated.length > 3) updated.shift();
+          return updated;
+        });
+      } catch {
+        toast.error('Search saved locally, but failed to sync recent searches.');
+      }
+    }
   };
 
   useEffect(() => {
     // clear URL params when Hero page loads
     setSearchParams({});
-  }, []);
-  scrollTo(0, 0);
+    scrollTo(0, 0);
+  }, [setSearchParams]);
 
   return (
     <div className="flex flex-col items-start justify-center px-6 md:px-16 lg:px-24 xl:px-32 text-white bg-[url('/src/assets/heroimg3.jpg')] bg-cover bg-center bg-no-repeat h-screen">

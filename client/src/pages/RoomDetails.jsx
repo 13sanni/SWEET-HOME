@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { assets, facilityIcons, roomCommonData } from '../assets/assets';
+import { facilityIcons, roomCommonData } from '../assets/assets';
 import StarRating from '../components/StarRating';
 import { useAppContext } from '../context/AppContext';
 import { toast } from 'react-hot-toast';
@@ -36,12 +36,12 @@ const RoomDetails = () => {
         } else {
           toast.error('Failed to load room');
         }
-      } catch (error) {
+      } catch {
         toast.error('Error fetching room details');
       }
     };
     fetchRoom();
-  }, [id]);
+  }, [id, axios]);
 
   const guestCapacityMap = {
     "Single Bed": 1,

@@ -5,7 +5,7 @@ import { createRoom, getOwnerRooms, getRooms, toggleRoomAvailability,getRoomById
 
 const roomRouter = express.Router()
 
-roomRouter.post('/',upload.array("images",4),protect,createRoom)
+roomRouter.post('/',protect,upload.array("images",4),createRoom)
 roomRouter.get('/',getRooms)
 roomRouter.get('/all',getAllRooms)
 roomRouter.get('/owner',protect,getOwnerRooms)
