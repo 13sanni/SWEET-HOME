@@ -4,7 +4,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { toast } from "react-hot-toast";
 
-axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
+const normalizeBackendUrl = (url = "") => {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/\/+$/, "").replace(/\/api$/i, "");
+};
+
+const backendUrl = normalizeBackendUrl(import.meta.env.VITE_BACKEND_URL || "");
+axios.defaults.baseURL = backendUrl;
 
 const AppContext = createContext();
 
@@ -21,6 +28,15 @@ export const AppProvider = ({ children }) => {
   const [rooms, setRooms] = useState([]);
   const [roomsByDateRange, setRoomsByDateRange] = useState([]);
 
+  useEffect(() => {
+    if (!backendUrl) {
+      console.error("VITE_BACKEND_URL is missing");
+      toast.error("Backend URL is missing. Set VITE_BACKEND_URL.");
+      return;
+    }
+    console.log("API Base URL:", backendUrl);
+  }, []);
+
   const fetchAllRooms = async()=>{
         try {
             const {data} = await axios.get('/api/rooms/all')  
@@ -30,7 +46,7 @@ export const AppProvider = ({ children }) => {
                 toast.error(data.message)
             }
         } catch (error) {
-            toast.error(error.message)
+            toast.error(error.response?.data?.message || error.message)
         }
     }
 
@@ -53,7 +69,7 @@ export const AppProvider = ({ children }) => {
         toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -74,7 +90,7 @@ export const AppProvider = ({ children }) => {
         }, 5000);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
