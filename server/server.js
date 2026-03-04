@@ -20,7 +20,7 @@ import {
 
 const app = express()
 const allowedOrigins = [
-"https://sweet-home-a-hotel-booking-platform-tau.vercel.app", // your frontend
+"https://sweet-home-a-hotel-booking-platform-nzzl-e9zo7ufck.vercel.app/", // your frontend
 "http://localhost:5173"            // for local development (optional)
 ];
 
