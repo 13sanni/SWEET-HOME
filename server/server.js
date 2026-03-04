@@ -20,16 +20,11 @@ import {
 
 const app = express()
 const allowedOrigins = [
-"https://sweet-home-a-hotel-booking-platform-nzzl-e9zo7ufck.vercel.app/", // your frontend
-"http://localhost:5173"            // for local development (optional)
+  process.env.FRONTEND_URL || "http://localhost:5173",
 ];
 
-// app.use(cors(
-  
-// )) //Enable cross origin resource sharing
 app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -39,9 +34,8 @@ app.use(cors({
   credentials: true
 }));
 
-//API to listen to stripe webhooks
-app.post('/api/stripe', express.raw({type: 'application/json'}), stripeWebHooks)
-app.use(express.json())//all the requests will be passed throough the json method
+app.post('/api/stripe', express.raw({ type: 'application/json' }), stripeWebHooks)
+app.use(express.json())
 const missingEnvKeys = getMissingEnvKeys(REQUIRED_ENV_KEYS);
 if (missingEnvKeys.length) {
   console.warn(`[env] Missing keys: ${missingEnvKeys.join(", ")}`);
@@ -50,7 +44,7 @@ if (missingEnvKeys.length) {
 }
 
 if (hasEnvKeys(CLERK_ENV_KEYS)) {
-  app.use(clerkMiddleware())//returns req.auth
+  app.use(clerkMiddleware())
 } else {
   console.warn("Clerk keys are missing. Protected routes will return 401 until keys are configured.");
 }
@@ -63,22 +57,14 @@ try {
 }
 connectCloudinary()
 
+app.use("/api/clerk", clerkWebHook)
 
-
-
-//API to listen clerk web hook
-app.use("/api/clerk",clerkWebHook)
-
-
-app.get('/',(req,res)=>res.send("API is working enough"))
+app.get('/', (req, res) => res.send("API is working"))
 
 app.use('/api/user',userRouter)
 app.use('/api/hotels',hotelRouter)
 app.use('/api/rooms',roomRouter)
-app.use('/api/bookings',bookingRouter)
+app.use('/api/bookings', bookingRouter)
 
-
-
-const PORT=process.env.PORT || 3000
-
-app.listen(PORT, ()=>console.log(`Server running on port ${PORT}`))
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

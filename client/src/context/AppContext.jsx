@@ -10,7 +10,7 @@ const normalizeBackendUrl = (url = "") => {
   return trimmed.replace(/\/+$/, "").replace(/\/api$/i, "");
 };
 
-const backendUrl = normalizeBackendUrl(import.meta.env.VITE_BACKEND_URL || "");
+const backendUrl = normalizeBackendUrl(import.meta.env.VITE_BACKEND_URL || "http://localhost:3000");
 axios.defaults.baseURL = backendUrl;
 
 const AppContext = createContext();
@@ -33,10 +33,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!backendUrl) {
       console.error("VITE_BACKEND_URL is missing");
-      toast.error("Backend URL is missing. Set VITE_BACKEND_URL.");
-      return;
     }
-    console.log("API Base URL:", backendUrl);
   }, []);
 
   const fetchAllRooms = async () => {
