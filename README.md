@@ -3,7 +3,9 @@
 A full-stack hotel booking platform built with **React**, **Node.js/Express**, **MongoDB**, **Clerk** (auth), **Cloudinary** (image uploads), **Stripe** (payments), and **Nodemailer** (email notifications).
 
 ---
-
+#live demo
+Frontend :https://sweet-home-theta.vercel.app/
+Backend :https://sweet-home-z6pr.onrender.com
 ## Tech Stack
 
 | Layer     | Technology                              |
@@ -133,6 +135,4 @@ The frontend will be available at `http://localhost:5173` and the backend at `ht
 
 ---
 
-## License
 
-MIT
